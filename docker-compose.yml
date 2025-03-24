@@ -11,14 +11,21 @@ services:
         GEOSERVER_WEBAPP_SRC: "https://build.geoserver.org/geoserver/main/geoserver-main-latest-war.zip"
     container_name: geoserver
     ports:
-      - 8080
+      - 9281:8080
     environment:
-      - GEOSERVER_LOG_DIR=/media/dati/geoserver/logs
-      - GEOSERVER_DATA_DIR=/media/dati/geoserver/datadir
-      - GEOWEBCACHE_CONFIG_DIR=/media/dati/geoserver/gwc
-      - GEOWEBCACHE_CACHE_DIR=/media/dati/geoserver/gwc_cache_dir
-      - NETCDF_DATA_DIR=/media/dati/geoserver/netcdf_data_dir
-      - GRIB_CACHE_DIR=/media/dati/geoserver/grib_cache_dir
+      - GEOSERVER_LOG_DIR=${GEOSERVER_LOG_DIR}
+      - GEOSERVER_DATA_DIR=${GEOSERVER_DATA_DIR}
+      - GEOWEBCACHE_CONFIG_DIR=${GEOWEBCACHE_CONFIG_DIR}
+      - GEOWEBCACHE_CACHE_DIR=${GEOWEBCACHE_CACHE_DIR}
+      - NETCDF_DATA_DIR=${NETCDF_DATA_DIR}
+      - GRIB_CACHE_DIR=${GRIB_CACHE_DIR}        
+    volumes:
+      - logs:${GEOSERVER_LOG_DIR}
+      - datadir:${GEOSERVER_DATA_DIR}
+      - gwc_config:${GEOWEBCACHE_CONFIG_DIR}
+      - gwc:${GEOWEBCACHE_CACHE_DIR}
+      - netcfd:${NETCDF_DATA_DIR}
+      - grib_cache:${GRIB_CACHE_DIR}
     networks:
       - geoserver-network
   
@@ -33,3 +40,11 @@ services:
       - geoserver
     networks:
       - geoserver-network
+
+volumes:
+  logs:
+  datadir:
+  gwc_config:
+  gwc:
+  netcfd:
+  grib_cache:
