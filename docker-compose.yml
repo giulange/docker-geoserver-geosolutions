@@ -3,6 +3,25 @@ networks:
   geoserver-network:
     driver: bridge
 services:
+  postgres:
+    image: postgis/postgis
+    container_name: postgres
+    restart: on-failure
+    healthcheck:
+      test: /usr/bin/pg_isready -U postgres
+      interval: 5s
+      timeout: 10s
+      retries: 120
+    ports:
+      - 5432
+    env_file:
+      - ./postgres/postgres.env
+    volumes:
+      - pg_data:${PGDATA:-/var/lib/postgresql/data}:rw
+      - ./postgres/01-init-user.sh:/docker-entrypoint-initdb.d/01-init-user.sh
+    networks:
+      - geoserver-network
+
   geoserver:
     build:
       context: .
@@ -10,6 +29,9 @@ services:
       args:
         GEOSERVER_WEBAPP_SRC: "https://build.geoserver.org/geoserver/main/geoserver-main-latest-war.zip"
     container_name: geoserver
+    depends_on:
+      postgres:
+        condition: service_healthy    
     ports:
       - 9281:8080
     environment:
@@ -42,6 +64,7 @@ services:
       - geoserver-network
 
 volumes:
+  pg_data:
   logs:
   datadir:
   gwc_config:
