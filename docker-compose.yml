@@ -13,7 +13,7 @@ services:
       timeout: 10s
       retries: 120
     ports:
-      - 5432
+      - 5432:5432
     env_file:
       - ./postgres/postgres.env
     volumes:
