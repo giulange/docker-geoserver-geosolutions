@@ -35,6 +35,7 @@ services:
     ports:
       - 9281:8080
     environment:
+      - GEOSERVER_CSRF_WHITELIST=geoserver.weatherprogapp.it
       - GEOSERVER_LOG_DIR=${GEOSERVER_LOG_DIR}
       - GEOSERVER_DATA_DIR=${GEOSERVER_DATA_DIR}
       - GEOWEBCACHE_CONFIG_DIR=${GEOWEBCACHE_CONFIG_DIR}
