@@ -6,3 +6,6 @@
 
 # zip files
 *.zip
+*.gpkg
+
+idata/logs/
