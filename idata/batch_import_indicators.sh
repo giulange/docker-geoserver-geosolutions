@@ -1,6 +1,7 @@
 #!/bin/bash
 # DESCRIPTION
 #  Execute the `import_indicators_csp_ren.sh` script in a loop.
+#  The current version of the code restart the postgres tables.
 #
 # CALL
 #  ./batch_import_indicators.sh 2015 2023

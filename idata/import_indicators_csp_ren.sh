@@ -1,4 +1,7 @@
 #!/bin/bash
+# csp: Consumo di Suolo Procapite
+# ren: renaturalization
+
 
 # === PARAMETRI: anni e livello ===
 REFERENCE_YEAR=$1
@@ -27,7 +30,7 @@ TABLE_RENAT="${LEVEL}_renaturalization"
 
 LOG_DIR="logs"
 mkdir -p "$LOG_DIR"
-LOGFILE="$LOG_DIR/import_log_${LEVEL}_${CURRENT_YEAR}_${REFERENCE_YEAR}.csv"
+LOGFILE="$LOG_DIR/import_log_${LEVEL}_${REFERENCE_YEAR}_${CURRENT_YEAR}.csv"
 
 # ====== FUNZIONI UTILI ======
 log() {
@@ -81,25 +84,27 @@ ogr2ogr \
   "$PG_CONN" \
   "$FILE_RENAT" \
   -nln "$TABLE_RENAT" \
-  -sql "SELECT *, $CURRENT_YEAR AS current_time, $REFERENCE_YEAR AS reference_time FROM ${LEVEL}_renaturalization_${REFERENCE_YEAR}_${CURRENT_YEAR}" \
+  -sql "SELECT *, CAST($CURRENT_YEAR AS INTEGER) AS current_time, CAST($REFERENCE_YEAR AS INTEGER) AS reference_time FROM ${LEVEL}_renaturalization_${REFERENCE_YEAR}_${CURRENT_YEAR}" \
   "-$MODE"
 
 # ====== TRANSAZIONE SQL CON ROLLBACK ======
 info "Esecuzione del merge dei dati rinaturalizzazione con transazione..."
 
-docker exec -i $DOCKER_CONTAINER bash -c "psql -d geoserver -U postgres" <<EOF
-BEGIN;
+# 1. ADD rinaturalizzazione if not existent
+docker exec -i $DOCKER_CONTAINER bash -c "psql -d geoserver -U geoserver" <<EOF
+ALTER TABLE $TABLE_SUOLO ADD COLUMN IF NOT EXISTS rinaturalizzazione NUMERIC;
+EOF
+echo "[INFO] ADD eseguito correttamente."
 
-DO \$\$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = '$TABLE_SUOLO' AND column_name = 'rinaturalizzazione'
-  ) THEN
-    ALTER TABLE $TABLE_SUOLO ADD COLUMN rinaturalizzazione NUMERIC;
-  END IF;
-END
-\$\$;
+# Subito dopo controllo se è andato tutto bene
+if [ $? -ne 0 ]; then
+  echo "[ERROR] Failed to add column 'rinaturalizzazione' to $TABLE_SUOLO." >&2
+  exit
+fi
+
+# 2. Poi la transazione UPDATE
+docker exec -i $DOCKER_CONTAINER bash -c "psql -e -d geoserver -U geoserver" <<EOF
+BEGIN;
 
 UPDATE $TABLE_SUOLO m
 SET rinaturalizzazione = r.rinaturalizzazione
@@ -112,10 +117,18 @@ WHERE m.pro_com_t = r.pro_com_t
 COMMIT;
 EOF
 
+echo "[INFO] Merge eseguito correttamente."
+
+# Controllo dell'esito
+if [ $? -ne 0 ]; then
+  echo "[ERROR] Failed to execute SQL transaction: rinaturalizzazione update failed." >&2
+  exit 1
+fi
+
 success "Merge completato correttamente."
 
 # ====== LOG FINALE ======
-echo "\"$(date '+%Y-%m-%d %H:%M:%S')\",\"$LEVEL\",\"$CURRENT_YEAR\",\"$REFERENCE_YEAR\",\"$EXISTING_SUOLO\",\"$EXISTING_RENAT\",\"OK\"" >> "$LOGFILE"
+echo "\"$(date '+%Y-%m-%d %H:%M:%S')\",\"$LEVEL\",\"$REFERENCE_YEAR\",\"$CURRENT_YEAR\",\"$EXISTING_SUOLO\",\"$EXISTING_RENAT\",\"OK\"" >> "$LOGFILE"
 success "Log scritto in $LOGFILE"
 
 echo ">> Procedura completata per $LEVEL $CURRENT_YEAR - $REFERENCE_YEAR ✅"
